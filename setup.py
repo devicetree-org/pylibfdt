@@ -41,7 +41,7 @@ class build_py(_build_py):
 
 
 setup(
-    name='libfdt',
+    name='pylibfdt',
     cmdclass = {'build_py' : build_py},
     use_scm_version=True,
     setup_requires = ['setuptools_scm'],
