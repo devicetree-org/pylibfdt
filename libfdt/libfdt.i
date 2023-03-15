@@ -443,6 +443,29 @@ class FdtRo(object):
         """
         return fdt_get_alias(self._fdt, name)
 
+    def get_path(self, nodeoffset, size_hint=1024, quiet=()):
+        """Get the full path of a node
+
+        Args:
+            nodeoffset: Node offset to check
+            size_hint: Hint for size of returned string
+
+        Returns:
+            Full path to the node
+
+        Raises:
+            FdtException if an error occurs
+        """
+        while True:
+            ret, path = fdt_get_path(self._fdt, nodeoffset, size_hint)
+            if ret == -NOSPACE:
+                size_hint *= 2
+                continue
+            err = check_err(ret, quiet)
+            if err:
+                return err
+            return path
+
     def parent_offset(self, nodeoffset, quiet=()):
         """Get the offset of a node's parent
 
@@ -716,6 +739,21 @@ class Property(bytearray):
     def as_int64(self):
         return self.as_cell('q')
 
+    def as_list(self, fmt):
+        return list(map(lambda x: x[0], struct.iter_unpack('>' + fmt, self)))
+
+    def as_uint32_list(self):
+        return self.as_list('L')
+
+    def as_int32_list(self):
+        return self.as_list('l')
+
+    def as_uint64_list(self):
+        return self.as_list('Q')
+
+    def as_int64_list(self):
+        return self.as_list('q')
+
     def as_str(self):
         """Unicode is supported by decoding from UTF-8"""
         if self[-1] != 0:
@@ -723,6 +761,13 @@ class Property(bytearray):
         if 0 in self[:-1]:
             raise ValueError('Property contains embedded nul characters')
         return self[:-1].decode('utf-8')
+
+    def as_stringlist(self):
+        """Unicode is supported by decoding from UTF-8"""
+        if self[-1] != 0:
+            raise ValueError('Property lacks nul termination')
+        parts = self[:-1].split(b'\x00')
+        return list(map(lambda x: x.decode('utf-8'), parts))
 
 
 class FdtSw(FdtRo):
@@ -991,6 +1036,9 @@ class NodeAdder():
 
 %rename(fdt_property) fdt_property_func;
 
+%immutable fdt_property::data;
+%immutable fdt_node_header::name;
+
 /*
  * fdt32_t is a big-endian 32-bit value defined to uint32_t in libfdt_env.h
  * so use the same type here.
@@ -1040,14 +1088,16 @@ typedef uint32_t fdt32_t;
 
 /* typemap used for fdt_getprop() */
 %typemap(out) (const void *) {
-	if (!$1)
+	if (!$1) {
 		$result = Py_None;
-	else
+		Py_INCREF($result);
+	} else {
         %#if PY_VERSION_HEX >= 0x03000000
-            $result = Py_BuildValue("y#", $1, *arg4);
+            $result = Py_BuildValue("y#", $1, (Py_ssize_t)*arg4);
         %#else
-            $result = Py_BuildValue("s#", $1, *arg4);
+            $result = Py_BuildValue("s#", $1, (Py_ssize_t)*arg4);
         %#endif
+    }
 }
 
 /* typemap used for fdt_setprop() */
@@ -1090,6 +1140,11 @@ typedef uint32_t fdt32_t;
               resultobj = SWIG_Python_AppendOutput(resultobj, val);
         }
 }
+
+%include "cstring.i"
+
+%cstring_output_maxsize(char *buf, int buflen);
+int fdt_get_path(const void *fdt, int nodeoffset, char *buf, int buflen);
 
 /* We have both struct fdt_property and a function fdt_property() */
 %warnfilter(302) fdt_property;
