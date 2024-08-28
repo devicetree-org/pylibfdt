@@ -44,13 +44,13 @@ setup(
     name='pylibfdt',
     cmdclass = {'build_py' : build_py},
     use_scm_version=True,
-    setup_requires = ['setuptools_scm', 'swig'],
+    setup_requires = ['setuptools_scm'],
     author='Simon Glass <sjg@chromium.org>',
     description='Python binding for libfdt',
     ext_modules=[libfdt_module],
     py_modules=['libfdt'],
     package_dir={'': 'libfdt'},
-    python_requires=">=3.8",
+
     long_description=long_description,
     long_description_content_type="text/plain",
 )
