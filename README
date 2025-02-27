@@ -14,7 +14,7 @@ On Debian distributions:
 
 The module can be installed with pip:
 
-   pip install libfdt
+   pip install pylibfdt
 
 or via setup.py:
 
