@@ -1175,7 +1175,7 @@ typedef uint32_t fdt32_t;
 
 /* typemaps used for fdt_next_node() */
 %typemap(in, numinputs=1) int *depth (int depth) {
-   depth = (int) PyInt_AsLong($input);
+   depth = (int) PyLong_AsLong($input);
    $1 = &depth;
 }
 
