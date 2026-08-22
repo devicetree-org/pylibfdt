@@ -21,6 +21,8 @@ int fdt_check_full(const void *fdt, size_t bufsize)
 	const char *propname;
 	bool expect_end = false;
 
+	if (can_assume(PERFECT))
+		return 0;
 	if (bufsize < FDT_V1_SIZE)
 		return -FDT_ERR_TRUNCATED;
 	if (bufsize < fdt_header_size(fdt))
@@ -43,7 +45,7 @@ int fdt_check_full(const void *fdt, size_t bufsize)
 			return nextoffset;
 
 		/* If we see two root nodes, something is wrong */
-		if (expect_end && tag != FDT_END)
+		if (expect_end && tag != FDT_END && tag != FDT_NOP)
 			return -FDT_ERR_BADSTRUCTURE;
 
 		switch (tag) {

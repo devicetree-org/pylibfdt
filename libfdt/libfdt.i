@@ -302,6 +302,38 @@ class FdtRo(object):
         check_err(val[0], quiet)
         return val[1:]
 
+    def address_cells(self, nodeoffset, quiet=()):
+        """Return the number of address cells used by a node's children
+
+        Args:
+            nodeoffset: Offset of the node to check
+            quiet: Errors to ignore (empty to raise on all errors)
+
+        Returns:
+            Number of address cells used by the children of @nodeoffset
+
+        Raises:
+            FdtException if the node has an invalid #address-cells property,
+            or another error occurs
+        """
+        return check_err(fdt_address_cells(self._fdt, nodeoffset), quiet)
+
+    def size_cells(self, nodeoffset, quiet=()):
+        """Return the number of size cells used by a node's children
+
+        Args:
+            nodeoffset: Offset of the node to check
+            quiet: Errors to ignore (empty to raise on all errors)
+
+        Returns:
+            Number of size cells used by the children of @nodeoffset
+
+        Raises:
+            FdtException if the node has an invalid #size-cells property, or
+            another error occurs
+        """
+        return check_err(fdt_size_cells(self._fdt, nodeoffset), quiet)
+
     def subnode_offset(self, parentoffset, name, quiet=()):
         """Get the offset of a named subnode
 
@@ -604,6 +636,42 @@ class Fdt(FdtRo):
         del self._fdt[self.totalsize():]
         return err
 
+    def add_mem_rsv(self, addr, size, quiet=()):
+        """Add a memory reserve-map record
+
+        This asks the client program not to use the given region of memory,
+        e.g. because something was loaded there.
+
+        Args:
+            addr: Start address of the region to reserve
+            size: Size of the region to reserve, in bytes
+            quiet: Errors to ignore (empty to raise on all errors)
+
+        Returns:
+            Error code, or 0 if OK
+
+        Raises:
+            FdtException if there is no space for another record, or another
+            error occurs
+        """
+        return check_err(fdt_add_mem_rsv(self._fdt, addr, size), quiet)
+
+    def del_mem_rsv(self, index, quiet=()):
+        """Remove the indexed memory reserve-map record
+
+        Args:
+            index: Record to remove (0=first)
+            quiet: Errors to ignore (empty to raise on all errors)
+
+        Returns:
+            Error code, or 0 if OK
+
+        Raises:
+            FdtException if there is no record at @index, or another error
+            occurs
+        """
+        return check_err(fdt_del_mem_rsv(self._fdt, index), quiet)
+
     def set_name(self, nodeoffset, name, quiet=()):
         """Set the name of a node
 
@@ -857,7 +925,7 @@ class FdtSw(FdtRo):
     device tree. This will be increased automatically as needed as new items
     are added to the tree.
     """
-    INC_SIZE = 1024  # Expand size by this much when out of space
+    INC_SIZE = 1024  # Expand size by at least this much when out of space
 
     def __init__(self, size_hint=None):
         """Create a new FdtSw object
@@ -901,6 +969,10 @@ class FdtSw(FdtRo):
         -NOSPACE then the FDT will be expanded to have more space, and True will
         be returned, indicating that the operation needs to be tried again.
 
+        Each expansion copies the whole tree into a new buffer, so the size is
+        at least doubled rather than grown by a fixed amount, to keep the total
+        amount of copying proportional to the size of the tree.
+
         Args:
             val: Return value from the operation that was attempted
 
@@ -908,7 +980,7 @@ class FdtSw(FdtRo):
             True if the operation must be retried, else False
         """
         if check_err(val, QUIET_NOSPACE) < 0:
-            self.resize(len(self._fdt) + self.INC_SIZE)
+            self.resize(len(self._fdt) + max(len(self._fdt), self.INC_SIZE))
             return True
         return False
 
@@ -1136,7 +1208,7 @@ typedef uint32_t fdt32_t;
 	PyObject *buff;
 
 	if ($1) {
-		resultobj = PyString_FromString(
+		resultobj = PyUnicode_FromString(
 			fdt_string(fdt1, fdt32_to_cpu($1->nameoff)));
 		buff = PyByteArray_FromStringAndSize(
 			(const char *)($1 + 1), fdt32_to_cpu($1->len));
@@ -1169,13 +1241,13 @@ typedef uint32_t fdt32_t;
         }
         $1 = PyBytes_AsString($input);
     %#else
-        $1 = PyString_AsString($input);   /* char *str */
+        $1 = PyBytes_AsString($input);   /* char *str */
     %#endif
 }
 
 /* typemaps used for fdt_next_node() */
 %typemap(in, numinputs=1) int *depth (int depth) {
-   depth = (int) PyInt_AsLong($input);
+   depth = (int) PyLong_AsLong($input);
    $1 = &depth;
 }
 
